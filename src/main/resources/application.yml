@@ -1,0 +1,26 @@
+server:
+  port: 8080
+  tomcat:
+    uri-encoding: UTF-8
+
+spring:
+  profiles:
+    active: dev
+  freemarker:
+    suffix: .html
+    request-context-attribute: request
+  mvc:
+    static-path-pattern: /statics/**
+  resources:
+    static-locations: classpath:/statics/
+
+logging:
+  file: my.log
+
+sms:
+  #端口
+  comPort: COM2
+  #每秒位数
+  baudRate: 9600
+  #开发商 例如 Wavecom  如果不填，则调用默认的驱动
+  manufacturer: Wavecom
