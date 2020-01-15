@@ -1,11 +1,11 @@
 package com.ixiangliu.controller;
 
 import com.ixiangliu.common.utils.Result;
-import gnu.io.CommPortIdentifier;
 import lombok.extern.slf4j.Slf4j;
 import org.smslib.Message;
 import org.smslib.OutboundMessage;
 import org.smslib.Service;
+import org.smslib.helper.CommPortIdentifier;
 import org.smslib.modem.SerialModemGateway;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,8 +22,6 @@ import java.util.List;
 public class SmsController {
 
     private static Service srv = null;
-
-    private Serial_For_Smslib smslib_test = new Serial_For_Smslib();
 
     @Value("${sms.comPort}")
     private String comPort;
@@ -44,6 +42,11 @@ public class SmsController {
     }
 
     public boolean creatService() {
+        List<String> coms = getAllComPorts();
+        if (!coms.contains(comPort)) {
+            log.error("扫描没有此端口");
+            return false;
+        }
         srv = new Service();
         SerialModemGateway gateway = new SerialModemGateway("SMS", comPort, baudRate, manufacturer, "");
         gateway.setInbound(true);
