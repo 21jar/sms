@@ -38,6 +38,7 @@ public class SmsController {
     @RequestMapping("/send")
     public Result send(String phone, String content){
         boolean sendStatus = sendSms(phone, content);
+        log.info("发送成功");
         return sendStatus?Result.ok("发送成功") : Result.error("发送失败");
     }
 
@@ -69,11 +70,11 @@ public class SmsController {
      */
     public static List<String> getAllComPorts(){
         List<String> comList = new ArrayList<String>();
-        Enumeration en = gnu.io.CommPortIdentifier.getPortIdentifiers();
-        gnu.io.CommPortIdentifier portIdRs = null;
+        Enumeration en = CommPortIdentifier.getPortIdentifiers();
+        CommPortIdentifier portIdRs = null;
 
         while (en.hasMoreElements()) {
-            portIdRs = (gnu.io.CommPortIdentifier) en.nextElement();
+            portIdRs = (CommPortIdentifier) en.nextElement();
             if (portIdRs.getPortType() == CommPortIdentifier.PORT_SERIAL) {
                 comList.add(portIdRs.getName());
             }
@@ -85,9 +86,8 @@ public class SmsController {
         if (srv == null) {
             if (!creatService()) {
                 log.error("连接失败");
-                close();
-                srv = null;
-                return false;
+//                close();
+                throw new RuntimeException();
             }
         }
         OutboundMessage msg = new OutboundMessage(mobile, content);
@@ -107,7 +107,7 @@ public class SmsController {
             }
         }
         // 关闭后再次发送失败
-        close();
+//        close();
         return true;
     }
 
@@ -115,6 +115,7 @@ public class SmsController {
         try {
             log.info("关闭成功");
             srv.stopService();
+            srv = null;
         } catch (Exception ex) {
             log.error("关闭失败");
             log.error("exception", ex);
