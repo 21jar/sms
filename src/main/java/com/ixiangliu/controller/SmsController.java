@@ -2,18 +2,12 @@ package com.ixiangliu.controller;
 
 import com.ixiangliu.common.utils.Result;
 import lombok.extern.slf4j.Slf4j;
-import org.smslib.Message;
-import org.smslib.OutboundMessage;
 import org.smslib.Service;
-import org.smslib.helper.CommPortIdentifier;
-import org.smslib.modem.SerialModemGateway;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.List;
 
 @Slf4j
@@ -37,95 +31,61 @@ public class SmsController {
      */
     @RequestMapping("/send")
     public Result send(String phone, String content){
-        boolean sendStatus = sendSms(phone, content);
-        log.info("发送成功");
-        return sendStatus?Result.ok("发送成功") : Result.error("发送失败");
-    }
-
-    public boolean creatService() {
-        List<String> coms = getAllComPorts();
-        if (!coms.contains(comPort)) {
-            log.error("扫描没有此端口");
-            return false;
-        }
-        srv = new Service();
-        SerialModemGateway gateway = new SerialModemGateway("SMS", comPort, baudRate, manufacturer, "");
-        gateway.setInbound(true);
-        gateway.setOutbound(true);
-        try {
-            srv.S.SERIAL_POLLING = true;
-            srv.addGateway(gateway);
-            srv.startService();
-            log.info("Modem connected.");
-        } catch (Exception ex) {
-            log.error("exception", ex);
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * @describe: 列举全部串口名称
-     * @date:2009-11-22
-     */
-    public static List<String> getAllComPorts(){
-        List<String> comList = new ArrayList<String>();
-        Enumeration en = CommPortIdentifier.getPortIdentifiers();
-        CommPortIdentifier portIdRs = null;
-
-        while (en.hasMoreElements()) {
-            portIdRs = (CommPortIdentifier) en.nextElement();
-            if (portIdRs.getPortType() == CommPortIdentifier.PORT_SERIAL) {
-                comList.add(portIdRs.getName());
+        SmsSendJob smsSendJob = SmsSendJob.getInstance();	// 运行实例
+        if (comPort != null){
+            boolean status = true;
+            smsSendJob.initial(baudRate, comPort);				// 设置波特率和串口字符
+            if (smsSendJob.readyToSendMsg()){				// 准备 - ok
+                // smsSendJob.printSmsInof();					// 打印sms信息
+                List<String> phoneList = new ArrayList<String>();
+                phoneList.add(phone);
+                status = smsSendJob.sendMessage(phoneList, content);
+                if (status) {
+                    log.info("发送成功");
+                } else {
+                    log.info("发送失败");
+                }
+                try {
+                    Thread.sleep(60 * 1000);  						// 一分钟后,关闭短信服务
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                // 接收短信在SmsService中已经注册,InboundNotification中process会处理
+                // 收短信后,默认会删除收到的短信,也可以通过setRec_msg_remove(boolean)修改
+                status = true;
+            } else {
+                status = false;
+                log.error("初始化短信模块失败");
             }
+            smsSendJob.stopService();
+            return status ? Result.ok("发送成功") : Result.ok("发送失败");
+        }else{
+            log.error("没有找到合适的串口号");
+            return Result.ok("发送失败");
         }
-        return comList;
     }
 
-    public boolean sendSms(String mobile, String content) {
-        if (srv == null) {
-            if (!creatService()) {
-                log.error("连接失败");
-//                close();
-                throw new RuntimeException();
+    public static void main(String[] args) throws Exception {
+
+        SmsSendJob smsSendJob = SmsSendJob.getInstance();	// 运行实例
+        String comName ="COM2"; 		// 获取合适短信模块的 串口字符
+
+        if (comName != null){
+            smsSendJob.initial(9600, comName);				// 设置波特率和串口字符
+            if (smsSendJob.readyToSendMsg()){				// 准备 - ok
+                // smsSendJob.printSmsInof();					// 打印sms信息
+                List<String> phoneList = new ArrayList<String>();
+                phoneList.add("18703694138");
+                String message = "是job"; // 给10086发一条查询余额的短信
+                smsSendJob.sendMessage(phoneList, message);
+                //Thread.sleep(60 * 1000);  						// 一分钟后,关闭短信服务
+                // 接收短信在SmsService中已经注册,InboundNotification中process会处理
+                // 收短信后,默认会删除收到的短信,也可以通过setRec_msg_remove(boolean)修改
             }
+            smsSendJob.stopService();
+        }else{
+            System.out.println("没有找到合适的串口号");
         }
-        OutboundMessage msg = new OutboundMessage(mobile, content);
-        msg.setEncoding(Message.MessageEncodings.ENCUCS2);
-        try {
-            srv.sendMessage(msg);
-            System.out.println(msg);
-        } catch (Exception ex) {
-            log.error("exception", ex);
-            try {
-                System.out.println("发送失败   重新发送   ...");
-                srv.sendMessage(msg);
-                System.out.println(msg);
-            } catch (Exception ex2) {
-                log.error("exception", ex2);
-                return false;
-            }
-        }
-        // 关闭后再次发送失败
-//        close();
-        return true;
-    }
-
-    public static void close() {
-        try {
-            log.info("关闭成功");
-            srv.stopService();
-            srv = null;
-        } catch (Exception ex) {
-            log.error("关闭失败");
-            log.error("exception", ex);
-        }
-    }
-
-    public static void main(String args[]) throws UnsupportedEncodingException {
-        String content = "你好";
-//        content = new String(content.getBytes("gbk"), "utf-8");
-//        sendSms("111", content);
     }
 
 }
